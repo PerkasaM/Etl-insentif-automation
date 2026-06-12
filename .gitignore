@@ -1,0 +1,65 @@
+# Buat file .gitignore
+cat > .gitignore << 'EOF'
+# ============================================
+# DATA FILES (SENSITIVE - JANGAN DI-COMMIT)
+# ============================================
+
+# Source data folder
+data/
+*.xlsx
+*.xls
+*.csv
+
+# Output folder
+output/
+
+# ============================================
+# Python
+# ============================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+*.egg-info/
+dist/
+build/
+
+# ============================================
+# IDE & Editor
+# ============================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.log
+
+# ============================================
+# Jupyter Notebook
+# ============================================
+.ipynb_checkpoints/
+*.ipynb
+
+# ============================================
+# Testing
+# ============================================
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ============================================
+# Temporary files
+# ============================================
+*.tmp
+*.temp
+*.bak
+*.backup
+*.txt
+EOF
