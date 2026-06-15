@@ -6,7 +6,7 @@ echo ETL INSENTIF Q1
 echo ======================================
 echo.
 
-python etl_insentif.py
+python "etl_insentif.py"
 
 if %errorlevel% neq 0 (
     echo.

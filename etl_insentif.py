@@ -60,7 +60,7 @@ DROP_INVALID_SO_DATE = True
 
 # Filter channel untuk pivot achievement (set None untuk semua channel)
 # Contoh: "MODERN TRADE" / "DIRECT" / "INDIRECT" / None
-FILTER_CHANNEL = "MODERN TRADE"
+FILTER_CHANNEL = 'MODERN TRADE'  # None = semua channel, atau set "MODERN TRADE" / "DIRECT" / dll
 
 # Daftar SDO yang dihitung insentifnya (semua SDO di Target KA)
 SDO_INSENTIF_LIST = [
