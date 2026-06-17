@@ -292,13 +292,13 @@ def transform(data: dict) -> pd.DataFrame:
     # SAP bisa menghasilkan multiple billing document (BILLINGDATE berbeda)
     # untuk 1 delivery item (DOCNUM + ITEM# + ACTUAL PGI DATE sama).
     # Ambil 1 baris per kombinasi unik → hindari double-count di pivot.
-    before = len(df)
-    df = df.drop_duplicates(subset=["DOCNUM", "ITEM#", "ACTUAL PGI DATE"], keep="first")
-    n_removed = before - len(df)
-    if n_removed:
-        print(f"   dedupe billing triplicates: -{n_removed:,} rows removed")
+    # before = len(df)
+    # df = df.drop_duplicates(subset=["DOCNUM", "ITEM#", "ACTUAL PGI DATE"], keep="first")
+    # n_removed = before - len(df)
+    # if n_removed:
+    #     print(f"   dedupe billing triplicates: -{n_removed:,} rows removed")
 
-    print(f"   ETL rows: {len(df):,}")
+    # print(f"   ETL rows: {len(df):,}")
     return df
 
 
