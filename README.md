@@ -1,107 +1,271 @@
-# ETL Insentif - ZSDCONUN
+# Sales Incentive ETL Pipeline
 
-Pipeline ETL untuk menghitung insentif SDO (Sales Development Officer) berdasarkan data penjualan dari SAP dan target yang ditetapkan.
+An automated ETL pipeline for processing sales transaction data, enriching it with reference data, calculating sales performance, and generating incentive reports based on configurable business rules.
 
-## 📋 Daftar Isi
+---
 
-- [Deskripsi](#-deskripsi)
-- [Alur Proses](#-alur-proses)
-- [Struktur Project](#-struktur-project)
-- [Quick Start](#-quick-start)
-- [Business Logic](#-business-logic)
-- [Konfigurasi](#-konfigurasi)
-- [Troubleshooting](#-troubleshooting)
+# Business Problem
 
-## 📋 Deskripsi
+Sales incentive calculations require transaction data from multiple operational systems to be consolidated, validated, enriched, and transformed before they can be used for performance evaluation.
 
-Project ini melakukan ekstraksi data dari beberapa sumber (Excel files), transformasi data (cleaning, enrichment, agregasi), dan menghasilkan output insentif per SDO untuk periode Q1 (Cycle 01-03 tahun 2026).
+Traditionally, these activities are performed manually using spreadsheets, creating several challenges:
 
-**Fitur utama:**
-- ✅ Clean data SDO dengan mapping khusus
-- ✅ Mapping cycle berdasarkan `ACTUAL PGI DATE`
-- ✅ Enrichment dengan master SKU (Brand, PG, SUB-PG)
-- ✅ Enrichment dengan master customer (Channel, SPV, ASM, RSM)
-- ✅ Klasifikasi transaksi (SALES, RETUR, CLAIM G)
-- ✅ Perhitungan insentif per cycle dan quarterly
-- ✅ Output Excel dengan 2 sheet: `Achievement` dan `Insentif`
+- Time-consuming data preparation
+- High risk of manual errors
+- Inconsistent master data
+- Difficulties handling transaction adjustments
+- Slow reporting process
+- Limited scalability for increasing transaction volumes
 
-## 🔄 Alur Proses
+This ETL pipeline automates the complete workflow, producing reliable and analytics-ready datasets for incentive reporting.
 
-### Diagram Alur ETL
+---
+
+# Solution
+
+This project automates the complete incentive calculation process by:
+
+- Loading transaction and reference datasets
+- Cleaning and validating transaction data
+- Standardizing customer and sales organization information
+- Enriching data using multiple reference tables
+- Classifying transaction types
+- Calculating sales achievement
+- Applying configurable incentive rules
+- Generating reporting-ready outputs
+
+---
+
+# ETL Architecture
 
 ```mermaid
 flowchart TD
-    Start([Start ETL]) --> Load[Load semua source data]
-    
-    subgraph Input [Source Data]
-        ZSD[ZSDCONUN<br/>Fakta Transaksi SAP]
-        CYCLE[CYCLE_REKAP<br/>Master Cycle]
-        SKU[skuu6<br/>Master SKU]
-        CUST[master c05<br/>Master Customer]
-        TARGET[Target Modern<br/>Target SDO per Cycle]
+
+    Start([Start ETL]) --> Load[Load Source Data]
+
+    subgraph Input["Input Sources"]
+        TRANS[Sales Transactions]
+        CALENDAR[Reporting Calendar]
+        PRODUCT[Product Master]
+        CUSTOMER[Customer Master]
+        TARGET[Sales Targets]
     end
-    
-    Load --> ZSD & CYCLE & SKU & CUST & TARGET
-    
-    subgraph Transform [Transformasi Data]
-        Clean[Clean ZSDCONUN<br/>- Drop invalid SO DATE<br/>- Clean SDO names<br/>- Convert dates]
-        Clean --> CalcPPN[Calculate NET VALUE2<br/>= NET VALUE × 1.11]
-        CalcPPN --> MapCycle[Map CYCLE<br/>Berdasarkan ACTUAL PGI DATE]
-        MapCycle --> MapSKU[Map SKU Master<br/>Brand, PG, SUB-PG]
-        MapSKU --> MapCust[Map Customer Master<br/>CHANNEL, SPV, ASM, RSM]
-        MapCust --> Classify[Classify REMARKS<br/>SALES / RETUR / CLAIM G]
+
+    Load --> TRANS
+    Load --> CALENDAR
+    Load --> PRODUCT
+    Load --> CUSTOMER
+    Load --> TARGET
+
+    subgraph Transform["Data Transformation"]
+        CLEAN[Data Cleaning]
+        STANDARD[Standardization]
+        ENRICH1[Product Enrichment]
+        ENRICH2[Customer Enrichment]
+        CLASSIFY[Transaction Classification]
     end
-    
-    ZSD --> Clean
-    CYCLE --> MapCycle
-    SKU --> MapSKU
-    CUST --> MapCust
-    
-    Classify --> Filter{Filter Data<br/>Untuk Achievement}
-    
-    subgraph Filtering [Filter Achievement]
-        F1[Filter SDO<br/>Hanya di SDO_INSENTIF_LIST]
-        F2[Filter REMARKS<br/>SALES atau RETUR saja]
-        F3[Channel: Semua channel]
+
+    TRANS --> CLEAN
+    CLEAN --> STANDARD
+    STANDARD --> ENRICH1
+    PRODUCT --> ENRICH1
+    ENRICH1 --> ENRICH2
+    CUSTOMER --> ENRICH2
+    ENRICH2 --> CLASSIFY
+
+    CALENDAR --> CLASSIFY
+
+    subgraph Calculation["Performance Calculation"]
+        FILTER[Business Filtering]
+        PIVOT[Aggregate Performance]
+        ACH[Achievement Calculation]
+        RULE[Apply Incentive Rules]
+        FINAL[Generate Final Result]
     end
-    
-    Filter --> F1 --> F2 --> F3
-    
-    F3 --> Pivot[Pivot Table<br/>SDO × CYCLE<br/>SUM NET VALUE2]
-    
-    subgraph Calculation [Perhitungan Insentif]
-        CalcTarget[Ambil Target Q1<br/>C01 + C02 + C03]
-        CalcAch[Hitung Achievement Q1<br/>Total NET VALUE2]
-        CalcPct[Hitung ACH%<br/>= Ach / Target × 100]
-        CalcTier[Determine Tier<br/>0.25% / 0.50% / 0.75%]
-        CalcInsentif[Hitung Nilai Insentif<br/>Sesuai tier & rumus]
-        CalcQuarterly[Hitung ADD Quarterly<br/>Berdasarkan ACH% Q1]
-        CalcTotal[Total Insentif<br/>= Sum per cycle + ADD]
+
+    CLASSIFY --> FILTER
+    FILTER --> PIVOT
+    TARGET --> ACH
+    PIVOT --> ACH
+    ACH --> RULE
+    RULE --> FINAL
+
+    subgraph Output["Output"]
+        DATASET[Processed Dataset]
+        REPORT[Performance Report]
     end
-    
-    TARGET --> CalcTarget
-    Pivot --> CalcAch
-    CalcTarget --> CalcPct
-    CalcAch --> CalcPct
-    CalcPct --> CalcTier --> CalcInsentif
-    CalcPct --> CalcQuarterly
-    CalcInsentif --> CalcTotal
-    CalcQuarterly --> CalcTotal
-    
-    subgraph Output [Output Files]
-        OUT1[ZSDCONUN_ETL_*.xlsx<br/>Data lengkap hasil ETL]
-        OUT2[Insentif_Q1_*.xlsx<br/>Sheet: Achievement<br/>Sheet: Insentif]
-    end
-    
-    Classify --> OUT1
-    CalcTotal --> OUT2
-    Pivot --> OUT2
-    
-    OUT1 --> End([Selesai])
-    OUT2 --> End
-    
-    style Input fill:#e1f5fe
-    style Transform fill:#fff3e0
-    style Filtering fill:#f3e5f5
-    style Calculation fill:#e8f5e9
-    style Output fill:#fce4ec
+
+    FINAL --> DATASET
+    FINAL --> REPORT
+
+    DATASET --> End([Finish])
+    REPORT --> End
+```
+
+---
+
+# Features
+
+## Data Processing
+
+- Automated ETL workflow
+- Data cleaning and validation
+- Date standardization
+- Customer normalization
+- Product enrichment
+- Sales organization mapping
+- Transaction classification
+- Business rule transformation
+- Performance aggregation
+- Incentive calculation
+- Automated report generation
+
+---
+
+## Data Enrichment
+
+- Customer information
+- Product hierarchy
+- Sales organization
+- Reporting calendar
+- Performance targets
+- Reference data integration
+
+---
+
+## Data Quality
+
+- Missing value handling
+- Invalid record filtering
+- Duplicate handling
+- Standardized output
+- Data consistency validation
+
+---
+
+# Workflow
+
+1. Load transaction data.
+2. Load reference datasets.
+3. Clean and validate source data.
+4. Standardize business attributes.
+5. Enrich transactions using reference data.
+6. Classify transaction types.
+7. Aggregate sales performance.
+8. Calculate achievement metrics.
+9. Apply configurable incentive rules.
+10. Generate reporting datasets.
+
+---
+
+# Project Structure
+
+```text
+project/
+│
+├── raw/
+├── master/
+├── output/
+├── config/
+├── script/
+│
+├── etl_pipeline.py
+└── run_pipeline.bat
+```
+
+---
+
+# Requirements
+
+```bash
+pip install pandas openpyxl numpy
+```
+
+---
+
+# Output
+
+The ETL pipeline generates:
+
+| Output | Description |
+|----------|-------------|
+| Processed Dataset | Clean and enriched transaction data |
+| Achievement Report | Aggregated sales performance |
+| Incentive Report | Final incentive calculation |
+
+---
+
+# Main Transformations
+
+- Data cleaning
+- Customer normalization
+- Product mapping
+- Sales organization mapping
+- Transaction classification
+- Performance aggregation
+- Achievement calculation
+- Business rule transformation
+- Incentive calculation
+- Final report generation
+
+---
+
+# Technologies
+
+| Category | Technology |
+|-----------|------------|
+| Language | Python |
+| Data Processing | Pandas |
+| Excel Processing | OpenPyXL |
+| Numerical Processing | NumPy |
+| ETL | Extract, Transform, Load |
+
+---
+
+# Skills Demonstrated
+
+- ETL Development
+- Data Engineering
+- Data Cleaning
+- Data Transformation
+- Data Validation
+- Data Integration
+- Business Rule Implementation
+- Performance Reporting
+- Python Automation
+- Pandas
+- Excel Automation
+
+---
+
+# Future Improvements
+
+- Configuration using YAML
+- Logging framework
+- Automated testing
+- Incremental processing
+- Database integration
+- Workflow orchestration (Apache Airflow)
+- Docker containerization
+- CI/CD pipeline
+- Data quality monitoring
+
+---
+
+# Disclaimer
+
+This repository demonstrates the ETL architecture and data processing workflow only.
+
+To protect confidential business information:
+
+- No proprietary datasets are included.
+- All configuration values have been anonymized.
+- Business rules have been generalized.
+- Reference data has been abstracted.
+- Sample data (if provided) is fictional or anonymized.
+
+---
+
+# Author
+
+Developed as a personal Data Engineering portfolio project demonstrating ETL automation, data transformation, performance calculation, and reporting pipeline development.
